@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vegas+ | admins-</title>
+    <title>Vegas+ | admins</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         :root {
@@ -378,7 +378,7 @@
         <div class="header">
             <div class="logo">
                 <i class="fas fa-robot logo-icon"></i>
-                <div class="logo-text">Vegas+ | admin</div>
+                <div class="logo-text">Vegas+ admins</div>
             </div>
             <div class="bot-status" id="bot-status">
                 <div class="status-dot" id="status-dot"></div>
@@ -489,6 +489,7 @@
         <div class="tab-content" id="announcements">
             <div class="card">
                 <div class="card-title"><i class="fas fa-bullhorn"></i> Отправить объявление</div>
+                <div style="background:rgba(230,126,34,0.1); border:1px solid var(--warning); padding:12px; border-radius:8px; margin-bottom:15px; color:var(--warning);"><i class="fas fa-shield-alt"></i> <b>Защита:</b> объявления, баны, кики и муты с сайта требуют подтверждения кнопкой в канале логов Discord.</div>
                 <div class="grid-2">
                     <div class="form-group"><label>Канал</label><select id="ann-channel"></select></div>
                     <div class="form-group"><label>Цвет (HEX)</label><input type="color" id="ann-color" value="#ff2e2e"></div>
@@ -695,21 +696,27 @@
         
         async function kickUser(userId) {
             const reason = prompt('Причина кика:') || '';
-            if (!confirm('Кикнуть?')) return;
+            if (!confirm('Отправить запрос на кик? Действие нужно будет подтвердить в Discord.')) return;
             const r = await fetch(`${API_URL}/kick`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, reason }) });
-            const j = await r.json(); alert(j.success ? '✅ Кикнут' : '❌ ' + (j.error||'Ошибка')); loadMembers(); loadDashboard();
+            const j = await r.json();
+            alert(j.success ? (j.message || '✅ Запрос отправлен') : '❌ ' + (j.error||'Ошибка'));
+            loadMembers(); loadDashboard();
         }
         async function banUser(userId) {
             const reason = prompt('Причина бана:') || '';
-            if (!confirm('Забанить?')) return;
+            if (!confirm('Отправить запрос на бан? Действие нужно будет подтвердить в Discord.')) return;
             const r = await fetch(`${API_URL}/ban`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, reason }) });
-            const j = await r.json(); alert(j.success ? '✅ Забанен' : '❌ ' + (j.error||'Ошибка')); loadMembers(); loadDashboard();
+            const j = await r.json();
+            alert(j.success ? (j.message || '✅ Запрос отправлен') : '❌ ' + (j.error||'Ошибка'));
+            loadMembers(); loadDashboard();
         }
         async function muteUser(userId) {
             const minutes = parseInt(prompt('На сколько минут замутить?', '10')) || 10;
             const reason = prompt('Причина мута:') || '';
             const r = await fetch(`${API_URL}/mute`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, minutes, reason }) });
-            const j = await r.json(); alert(j.success ? `✅ Замучен на ${minutes} мин` : '❌ ' + (j.error||'Ошибка')); loadDashboard();
+            const j = await r.json();
+            alert(j.success ? (j.message || `✅ Запрос на мут (${minutes} мин) отправлен`) : '❌ ' + (j.error||'Ошибка'));
+            loadDashboard();
         }
         async function removeWarning(warningId) { if (confirm('Удалить предупреждение?')) await fetch(`${API_URL}/warnings/${warningId}`, { method: 'DELETE' }), loadWarnings(), loadDashboard(); }
         async function closeTicket(ticketId) { if (confirm('Закрыть тикет?')) await fetch(`${API_URL}/tickets/${ticketId}`, { method: 'DELETE' }), loadTickets(); }
@@ -740,13 +747,14 @@
             const mention_everyone = document.getElementById('ann-mention').checked;
             if (!channel_id) return alert('Выберите канал');
             if (!title && !content) return alert('Заголовок или текст должны быть заполнены');
+            if (!confirm('Отправить запрос на объявление? Нужно будет подтвердить в Discord.')) return;
             const res = await fetch(`${API_URL}/announce`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ channel_id, title, content, color, mention_everyone })
             });
             const j = await res.json();
             if (j.success) {
-                alert('✅ Объявление отправлено');
+                alert(j.message || '✅ Запрос отправлен в канал логов');
                 document.getElementById('ann-title').value = '';
                 document.getElementById('ann-content').value = '';
                 document.getElementById('ann-mention').checked = false;
