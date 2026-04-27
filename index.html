@@ -527,6 +527,27 @@
                 <div class="form-group"><label>Наказание за превышение</label><select id="setting-warn-punishment"><option value="mute">Мут</option><option value="kick">Кик</option><option value="ban">Бан</option></select></div>
                 <button class="btn btn-primary" id="save-settings"><i class="fas fa-save"></i> Сохранить настройки</button>
             </div>
+
+            <div class="card">
+                <div class="card-title"><i class="fas fa-palette"></i> Управление ролями</div>
+                <div style="background:rgba(230,126,34,0.1); border:1px solid var(--warning); padding:12px; border-radius:8px; margin-bottom:15px; color:var(--warning);"><i class="fas fa-shield-alt"></i> Создание и удаление ролей требует подтверждения в канале логов Discord.</div>
+                <div class="grid-2">
+                    <div>
+                        <h4 style="margin-bottom:12px; color:var(--accent-gold);"><i class="fas fa-plus-circle"></i> Создать роль</h4>
+                        <div class="form-group"><label>Название роли</label><input type="text" id="new-role-name" placeholder="VIP" maxlength="100"></div>
+                        <div class="form-group"><label>Цвет</label><input type="color" id="new-role-color" value="#99aab5" style="height:42px;"></div>
+                        <div class="form-group"><label><input type="checkbox" id="new-role-hoist"> Отображать отдельно в списке</label></div>
+                        <div class="form-group"><label><input type="checkbox" id="new-role-mentionable"> Можно упоминать (@роль)</label></div>
+                        <button class="btn btn-success" id="create-role-btn"><i class="fas fa-paper-plane"></i> Запросить создание</button>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:12px; color:var(--accent-gold);"><i class="fas fa-trash"></i> Удалить роль</h4>
+                        <div class="form-group"><label>Выберите роль</label><select id="delete-role-select"></select></div>
+                        <button class="btn btn-danger" id="delete-role-btn"><i class="fas fa-paper-plane"></i> Запросить удаление</button>
+                        <div style="margin-top:10px; color:var(--text-gray); font-size:12px;">⚠️ Системные роли (от ботов, @everyone) удалить нельзя.</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -546,16 +567,42 @@
         let currentEditCommand = null;
         
         async function checkStatus() {
+            const dot = document.getElementById('status-dot');
+            const txt = document.getElementById('status-text');
+            const gname = document.getElementById('guild-name');
             try {
-                const res = await fetch(`${API_URL}/status`);
+                const res = await fetch(`${API_URL}/status`, { cache: 'no-store' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const data = await res.json();
-                document.getElementById('status-dot').className = data.connected ? 'status-dot' : 'status-dot offline';
-                document.getElementById('status-text').textContent = data.connected ? '✅ Бот онлайн' : '❌ Бот оффлайн';
-                if (data.guild_name) document.getElementById('guild-name').textContent = `- ${data.guild_name}`;
+                dot.className = data.connected ? 'status-dot' : 'status-dot offline';
+                txt.textContent = data.connected ? '✅ Бот онлайн' : '❌ Бот оффлайн (Discord)';
+                gname.textContent = data.guild_name ? `- ${data.guild_name}` : '';
+                gname.title = `API: ${API_URL}`;
                 if (data.connected) loadDashboard();
             } catch(e) {
-                document.getElementById('status-dot').className = 'status-dot offline';
-                document.getElementById('status-text').textContent = '❌ Бот не отвечает';
+                dot.className = 'status-dot offline';
+                txt.textContent = '❌ Нет связи с API';
+                gname.textContent = '';
+                gname.title = `${API_URL} → ${e.message}`;
+                console.error('[Vegas+ admin] Connection error:', e, 'URL:', API_URL);
+                // Покажем подсказку один раз
+                if (!window.__connHintShown) {
+                    window.__connHintShown = true;
+                    const hint = document.createElement('div');
+                    hint.style.cssText = 'background:rgba(231,76,60,0.15);border:1px solid #e74c3c;color:#fff;padding:14px;margin:15px 0;border-radius:10px;font-size:14px;line-height:1.5;';
+                    hint.innerHTML = `<b>⚠️ Сайт не может подключиться к боту.</b><br>
+                        <code style="background:#000;padding:2px 6px;border-radius:4px;font-size:12px;">${API_URL}</code><br>
+                        Ошибка: <b>${e.message}</b><br><br>
+                        <b>Что проверить:</b>
+                        <ol style="margin-left:20px;margin-top:6px;">
+                            <li>Запущен ли бот в Replit (workspace должен быть активен).</li>
+                            <li>Совпадает ли URL выше с текущим адресом Replit-проекта.</li>
+                            <li>Откройте URL в новой вкладке — должен прийти JSON.</li>
+                            <li>Попросите владельца обновить файл <code>exports/index.html</code> в репозитории.</li>
+                        </ol>`;
+                    const c = document.querySelector('.container');
+                    if (c) c.insertBefore(hint, c.children[1]);
+                }
             }
         }
         
@@ -681,6 +728,7 @@
                 fillSelect(document.getElementById('setting-ticket-role'), roles, settings.ticket_role);
                 fillMultiSelect(document.getElementById('setting-mod-roles'), roles, settings.mod_roles);
                 fillSelect(document.getElementById('ann-channel'), channels.text || [], '');
+                fillSelect(document.getElementById('delete-role-select'), roles, '');
                 document.getElementById('setting-warn-limit').value = settings.warn_limit || 3;
                 document.getElementById('setting-warn-punishment').value = settings.warn_punishment || 'mute';
             } catch(e) { console.error(e); }
@@ -689,10 +737,43 @@
         async function warnUser(userId, userName) {
             const reason = prompt(`Причина предупреждения для ${userName}:`);
             if (!reason) return;
-            await fetch(`${API_URL}/warn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, reason, moderator: 'Admin Panel' }) });
-            alert('Предупреждение выдано');
+            if (!confirm('Отправить запрос на варн? Действие нужно будет подтвердить в Discord.')) return;
+            const r = await fetch(`${API_URL}/warn`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: userId, reason, moderator: 'Admin Panel' }) });
+            const j = await r.json();
+            alert(j.success ? (j.message || '✅ Запрос отправлен') : '❌ ' + (j.error || 'Ошибка'));
             loadWarnings();
             loadDashboard();
+        }
+
+        async function createRole() {
+            const name = document.getElementById('new-role-name').value.trim();
+            if (!name) return alert('Укажите название роли');
+            const payload = {
+                name,
+                color: document.getElementById('new-role-color').value,
+                hoist: document.getElementById('new-role-hoist').checked,
+                mentionable: document.getElementById('new-role-mentionable').checked,
+                moderator: 'Admin Panel'
+            };
+            if (!confirm(`Создать роль «${name}»? Подтверди в Discord.`)) return;
+            const r = await fetch(`${API_URL}/roles/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const j = await r.json();
+            alert(j.success ? (j.message || '✅ Запрос отправлен') : '❌ ' + (j.error || 'Ошибка'));
+            if (j.success) {
+                document.getElementById('new-role-name').value = '';
+                document.getElementById('new-role-hoist').checked = false;
+                document.getElementById('new-role-mentionable').checked = false;
+            }
+        }
+
+        async function deleteRole() {
+            const sel = document.getElementById('delete-role-select');
+            const id = sel.value, name = sel.options[sel.selectedIndex]?.text || id;
+            if (!id) return alert('Выберите роль');
+            if (!confirm(`Удалить роль «${name}»? Действие нужно будет подтвердить в Discord.`)) return;
+            const r = await fetch(`${API_URL}/roles/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ moderator: 'Admin Panel' }) });
+            const j = await r.json();
+            alert(j.success ? (j.message || '✅ Запрос отправлен') : '❌ ' + (j.error || 'Ошибка'));
         }
         
         async function kickUser(userId) {
@@ -767,6 +848,8 @@
         // Event handlers
         document.getElementById('add-warning-btn')?.addEventListener('click', () => { const id = document.getElementById('warn-user-id').value, reason = document.getElementById('warn-reason').value; if(id && reason) warnUser(id, id); });
         document.getElementById('save-settings')?.addEventListener('click', saveSettings);
+        document.getElementById('create-role-btn')?.addEventListener('click', createRole);
+        document.getElementById('delete-role-btn')?.addEventListener('click', deleteRole);
         document.getElementById('send-announcement')?.addEventListener('click', sendAnnouncement);
         document.getElementById('refresh-members')?.addEventListener('click', loadMembers);
         
