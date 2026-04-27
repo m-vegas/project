@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vegas+ | admins</title>
+    <title>Vegas+ | Discord Bot Admin Panel PRO</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         :root {
@@ -378,7 +378,7 @@
         <div class="header">
             <div class="logo">
                 <i class="fas fa-robot logo-icon"></i>
-                <div class="logo-text">Vegas+ admins</div>
+                <div class="logo-text">Vegas+ Bot Admin PRO</div>
             </div>
             <div class="bot-status" id="bot-status">
                 <div class="status-dot" id="status-dot"></div>
@@ -517,7 +517,8 @@
         <div class="tab-content" id="settings">
             <div class="card">
                 <div class="card-title"><i class="fas fa-cog"></i> Основные настройки</div>
-                <div style="background:rgba(52,152,219,0.1); border:1px solid var(--info); padding:12px; border-radius:8px; margin-bottom:15px; color:var(--info);"><i class="fas fa-info-circle"></i> Бот работает на <b>slash-командах</b> (/kick, /ban, /panel и т.д.). Префикс не используется.</div>
+                <div style="background:rgba(52,152,219,0.1); border:1px solid var(--info); padding:12px; border-radius:8px; margin-bottom:10px; color:var(--info);"><i class="fas fa-info-circle"></i> Бот работает на <b>slash-командах</b> (/kick, /ban, /panel, /gg и т.д.). Префикс не используется.</div>
+                <div style="background:rgba(230,126,34,0.1); border:1px solid var(--warning); padding:12px; border-radius:8px; margin-bottom:15px; color:var(--warning);"><i class="fas fa-shield-alt"></i> <b>Защита:</b> любые изменения настроек после первичной настройки требуют подтверждения кнопкой в канале логов Discord.</div>
                 <div class="form-group"><label>Канал для логов</label><select id="setting-log-channel"></select></div>
                 <div class="form-group"><label>Категория для тикетов</label><select id="setting-ticket-category"></select></div>
                 <div class="form-group"><label>Роль для тикетов</label><select id="setting-ticket-role"></select></div>
@@ -541,7 +542,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://b765206c-6a1e-40d5-957a-8bbffb3c578a-00-1uhtc8blcgegq.worf.replit.dev:5000/api';
+        const API_URL = '/api';
         let currentEditCommand = null;
         
         async function checkStatus() {
@@ -733,10 +734,11 @@
                 warn_limit: parseInt(document.getElementById('setting-warn-limit').value),
                 warn_punishment: document.getElementById('setting-warn-punishment').value
             };
+            if (!confirm('Отправить изменения настроек на подтверждение в Discord?')) return;
             const res = await fetch(`${API_URL}/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings) });
             const j = await res.json();
-            if (j.success) { alert('✅ Настройки сохранены'); loadSettings(); }
-            else alert('❌ Ошибка сохранения');
+            if (j.success) { alert(j.message || '✅ Запрос отправлен'); loadSettings(); }
+            else alert('❌ Ошибка: ' + (j.error || 'unknown'));
         }
 
         async function sendAnnouncement() {
